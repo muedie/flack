@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='index.js') }}"></script>
+
+    <title>Flack</title>
+</head>
+
+<body>
+    <div class="channels">
+        <ul class="channel-list"></ul>
+        <button id="add-channel">+ New</button>
+    </div>
+
+    <div class=messages>
+        <ul class="msg-list"></ul>
+        <button id="msg-send">Send</button>
+    </div>
+</body>
+
+</html>

@@ -1,17 +1,11 @@
 import os
 
-from flask import Flask, render_template, request, jsonify, session, redirect
-from flask_session import Session
-from flask_socketio import SocketIO, emit
+from flask import Flask, render_template, request, jsonify
+from flask_socketio import SocketIO, emit, disconnect
 
-from helpers import login_required
+from collections import deque
 
 app = Flask(__name__)
-
-# session configure
-app.config["SESSION_PERMANENT"] = False
-app.config["SESSION_TYPE"] = 'filesystem'
-Session(app)
 
 # socket-io configure
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
@@ -22,43 +16,35 @@ USERS = {}
 CHANNELS = {}
 
 @app.route("/")
-@login_required
 def index():
+    return render_template("index.html")
 
-    username = session["username"]
+@socketio.on('connect')
+def connection():
+    print("new user connected")
 
-    return render_template("index.html", username=username)
+@socketio.on('userdata')
+def user_data(data):
+    if data['username'] in USERS:
+        disconnect()
+    else:
+        USERS[data['username']] = request.sid
 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    """
-        Log in user
-        TODO: If display name is claimed with password, require a password, else let them in
-    """
+@socketio.on('new channel')
+def new_channel(data):
+    if data['name'] in CHANNELS:
+        return False
+    else:
+        CHANNELS[data['name']] = deque(maxlen=100)
+        emit('new channel', data['name'], broadcast=True)
 
-    # clear any previous user
-    session.clear()
+@socketio.on('new msg')
+def new_msg(data):
+    
+    if 'channel' in data:
+        CHANNELS[data['channel']].append(data['message'])
+        emit('new msg', data, broadcast=True)
 
-    if request.method == 'POST':
-
-        username = request.form.get("username")
-
-        # get display name
-        if not username:
-            return render_template("login.html")
-
-
-        # check if username is unique
-        if username in USERS:
-            return "Username already taken!"
-
-        USERS[username] = username
-
-        session["username"] = username
-
-        return redirect("/")
-
-    return render_template("login.html")
 
 if __name__ == "__main__":
     socketio.run(app, debug=True, use_reloader=True)
