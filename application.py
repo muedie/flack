@@ -1,6 +1,7 @@
 import os
+import time
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, disconnect
 
 from collections import deque
@@ -13,7 +14,7 @@ socketio = SocketIO(app)
 
 # replacing DB rn, TODO
 USERS = {}
-CHANNELS = {}
+CHANNELS = {"general": deque([], maxlen=100)}
 
 @app.route("/")
 def index():
@@ -26,7 +27,9 @@ def connection():
 @socketio.on('userdata')
 def user_data(data):
     if data['username'] in USERS:
-        disconnect()
+        print('duplicate channel disconnection', USERS)
+        emit("duplicate username")
+        # disconnect()
     else:
         USERS[data['username']] = request.sid
 
@@ -36,15 +39,24 @@ def new_channel(data):
         return False
     else:
         CHANNELS[data['name']] = deque(maxlen=100)
-        emit('new channel', data['name'], broadcast=True)
+        emit('new channel', { "name" : data['name']}, broadcast=True)
 
 @socketio.on('new msg')
 def new_msg(data):
     
     if 'channel' in data:
-        CHANNELS[data['channel']].append(data['message'])
-        emit('new msg', data, broadcast=True)
+        data['created_at'] = int(time.time())
+        CHANNELS[data['channel']].append(data)
+        emit('msg', data, broadcast=True)
 
+@socketio.on('get channels')
+def get_channels():
+    emit('channels', list(CHANNELS.keys()))
+
+@socketio.on('get msgs')
+def get_msgs(data):
+    if 'name' in data:
+        emit('msgs', list(CHANNELS[data['name']]))
 
 if __name__ == "__main__":
     socketio.run(app, debug=True, use_reloader=True)
