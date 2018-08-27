@@ -1,0 +1,9 @@
+#msg-list {
+    height: 80vh;
+    overflow: auto;
+}
+
+#channel-list {
+    height: 80vh;
+    overflow: auto;
+}

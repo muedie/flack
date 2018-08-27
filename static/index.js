@@ -45,12 +45,15 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 const setup = socket => {
-  let new_channel_btn = document.querySelector("#add-channel");
+  let channel_form = document.querySelector("#channel-form");
   let channel_name_inp = document.querySelector("#channel-name");
   let msg_inp = document.querySelector("#msg-text");
-  let msg_send_btn = document.querySelector("#msg-send");
+  let msg_form = document.querySelector("#msg-form");
 
-  new_channel_btn.addEventListener("click", () => {
+  channel_form.addEventListener("submit", e => {
+    // no reload
+    e.preventDefault();
+
     let name = channel_name_inp.value;
 
     if (!name) {
@@ -59,9 +62,14 @@ const setup = socket => {
     }
 
     socket.emit("new channel", { name });
+
+    channel_name_inp.value = "";
   });
 
-  msg_send_btn.addEventListener("click", () => {
+  msg_form.addEventListener("submit", e => {
+    // no reloading
+    e.preventDefault();
+
     let msg = msg_inp.value;
     let channel = localStorage.getItem("channel");
 
@@ -80,46 +88,78 @@ const setup = socket => {
       channel,
       username: localStorage.getItem("username")
     });
+
+    msg_inp.value = "";
   });
 
   socket.emit("get channels");
 
-  if (localStorage.getItem('channel')) {
-      socket.emit("get msgs", { name: localStorage.getItem('channel')})
+  if (localStorage.getItem("channel")) {
+    socket.emit("get msgs", { name: localStorage.getItem("channel") });
   }
 };
 
 const show_channel = (name, socket) => {
   // grab ul that displays channels
-  let ul = document.querySelector(".channel-list");
+  let ul = document.querySelector("#channel-list");
 
   let li = document.createElement("li");
 
+  li.classList.add("list-group-item");
   li.innerHTML = name;
 
   li.addEventListener("click", () => {
     localStorage.setItem("channel", name);
 
     socket.emit("get msgs", { name });
+
+    // change title
+    let title = document.querySelector("#channel-label");
+    title.innerHTML = '<span class="text-muted"># </span>' + name;
+
+    // color active channel
+    show_active_channel(name);
   });
 
   ul.appendChild(li);
 };
 
+const show_active_channel = name => {
+  document.querySelectorAll("#channel-list > li").forEach((e) => {
+    if (e.innerHTML == name) {
+      e.classList.add("active")
+    } else {
+      e.classList.remove("active")
+    }
+  })
+}
+
+const clear_channels = () => {
+  let ul = document.querySelector("#channel-list");
+  ul.innerHTML = "";
+}
+
 const clear_msgs = () => {
-  let ul = document.querySelector(".msg-list");
+  let ul = document.querySelector("#msg-list");
   ul.innerHTML = "";
 };
 
 const show_msg = data => {
   if (localStorage.getItem("channel") == data.channel) {
-    let ul = document.querySelector(".msg-list");
+    let ul = document.querySelector("#msg-list");
     let li = document.createElement("li");
 
-    li.innerHTML = `${data.username} : ${data.msg} <small>- ${
+    li.classList.add("list-group-item");
+
+    li.innerHTML = `<strong>${data.username}</strong>: ${
+      data.msg
+    } <small class="text-muted d-flex justify-content-end">${get_date_string(
       data.created_at
-    }</small>`;
+    )}</small>`;
     ul.appendChild(li);
+
+    // scroll msg-list
+    ul.scrollTop = ul.scrollHeight - ul.clientHeight;
   }
 };
 
@@ -147,4 +187,20 @@ const get_username = (dup = false) => {
   }
 
   return username;
+};
+
+const get_date_string = time => {
+  time = new Date(time * 1000);
+
+  let m_string = `${time.toDateString().split(" ")[1]} ${time.getDate()}`;
+
+  if (time.getFullYear() != new Date().getFullYear()) {
+    m_string += `, ${time.getFullYear()}`;
+  }
+
+  return `${time.toLocaleString("en-US", {
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true
+  })} | ${m_string}`;
 };
