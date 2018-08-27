@@ -1,48 +1,45 @@
 document.addEventListener("DOMContentLoaded", () => {
-  let username = get_username();
-
-  if (username) {
-    // connect to socket
-    let socket = io.connect(
-      location.protocol + "//" + document.domain + ":" + location.port
-    );
-
-    socket.on("connect", () => {
-      socket.emit("userdata", { username });
-
-      setup(socket);
-
-      socket.on("new channel", data => {
-        show_channel(data.name, socket);
-      });
-
-      socket.on("msg", data => {
-        show_msg(data);
-      });
-
-      socket.on("channels", data => {
-        for (let c of data) {
-          show_channel(c, socket);
-        }
-      });
-
-      socket.on("msgs", data => {
-        clear_msgs();
-        data.forEach(msg => {
-          show_msg(msg);
-        });
-      });
-    });
-
-    socket.on("duplicate username", () => {
-      console.log("disconnection due to duplicate username");
-      // TODO
-      // localStorage.removeItem("username");
-      // get_username(true);
-      // window.location.reload(false);
-    });
-  }
+  get_username();
 });
+
+const init = username => {
+  // connect to socket
+  let socket = io.connect(
+    location.protocol + "//" + document.domain + ":" + location.port
+  );
+
+  socket.on("connect", () => {
+    socket.emit("userdata", { username });
+
+    setup(socket);
+
+    socket.on("new channel", data => {
+      show_channel(data.name, socket);
+    });
+
+    socket.on("msg", data => {
+      show_msg(data);
+    });
+
+    socket.on("channels", data => {
+      clear_channels();
+      for (let c of data) {
+        show_channel(c, socket);
+      }
+
+      // initial active channel
+      show_active_channel(localStorage.getItem("channel"));
+      change_msg_title(localStorage.getItem("channel"));
+    });
+
+    socket.on("msgs", data => {
+      clear_msgs();
+      data.forEach(msg => {
+        show_msg(msg);
+      });
+    });
+  });
+};
 
 const setup = socket => {
   let channel_form = document.querySelector("#channel-form");
@@ -113,9 +110,7 @@ const show_channel = (name, socket) => {
 
     socket.emit("get msgs", { name });
 
-    // change title
-    let title = document.querySelector("#channel-label");
-    title.innerHTML = '<span class="text-muted"># </span>' + name;
+    change_msg_title(name);
 
     // color active channel
     show_active_channel(name);
@@ -124,20 +119,28 @@ const show_channel = (name, socket) => {
   ul.appendChild(li);
 };
 
+const change_msg_title = title_name => {
+  // change title
+  if (title_name) {
+    let title = document.querySelector("#channel-label");
+    title.innerHTML = '<span class="text-muted"># </span>' + title_name;
+  }
+};
+
 const show_active_channel = name => {
-  document.querySelectorAll("#channel-list > li").forEach((e) => {
+  document.querySelectorAll("#channel-list > li").forEach(e => {
     if (e.innerHTML == name) {
-      e.classList.add("active")
+      e.classList.add("active");
     } else {
-      e.classList.remove("active")
+      e.classList.remove("active");
     }
-  })
-}
+  });
+};
 
 const clear_channels = () => {
   let ul = document.querySelector("#channel-list");
   ul.innerHTML = "";
-}
+};
 
 const clear_msgs = () => {
   let ul = document.querySelector("#msg-list");
@@ -163,30 +166,35 @@ const show_msg = data => {
   }
 };
 
-const get_username = (dup = false) => {
+const get_username = () => {
   // get user display name
   let username = localStorage.getItem("username");
 
-  while (!username) {
-    if (dup) {
-      username = prompt(
-        "YOU ENTERTED DUPLICATE USERNAME, enter new username: "
-      );
-    } else {
-      username = prompt("Enter your name: ");
-    }
+  if (!username) {
+    $(".modal").modal({ show: true, backdrop: "static" });
 
-    if (typeof username == "string") {
-      username = username.trim();
-      if (username == "") {
-        username = null;
-      } else {
-        localStorage.setItem("username", username);
+    document.querySelector("#username-form").addEventListener("submit", e => {
+      e.preventDefault();
+
+      username = document.querySelector("#username-text").value;
+
+      console.log(username);
+
+      if (typeof username == "string") {
+        username = username.trim();
+        if (username == "") {
+          username = null;
+        } else {
+          localStorage.setItem("username", username);
+          $(".modal").modal("hide");
+
+          init(username);
+        }
       }
-    }
+    });
+  } else {
+    init(username);
   }
-
-  return username;
 };
 
 const get_date_string = time => {

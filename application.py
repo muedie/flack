@@ -12,7 +12,7 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 socketio = SocketIO(app)
 
-# replacing DB rn, TODO
+# in-memory data
 USERS = {}
 CHANNELS = {"general": deque([], maxlen=100)}
 
@@ -26,11 +26,7 @@ def connection():
 
 @socketio.on('userdata')
 def user_data(data):
-    if data['username'] in USERS:
-        print('duplicate channel disconnection', USERS)
-        emit("duplicate username")
-        # disconnect()
-    else:
+    if 'username' in data: 
         USERS[data['username']] = request.sid
 
 @socketio.on('new channel')
@@ -59,4 +55,4 @@ def get_msgs(data):
         emit('msgs', list(CHANNELS[data['name']]))
 
 if __name__ == "__main__":
-    socketio.run(app, debug=True, use_reloader=True)
+    socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
